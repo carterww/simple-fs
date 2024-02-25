@@ -4,13 +4,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define BLOCK_SIZE 2048
-#define BLOCK_COUNT 512
-
-// Use rest of the VCB block for storing the bitmap.
-#define REST_OF_BLOCK (BLOCK_SIZE - \
-    ((3 * sizeof(size_t)) + sizeof(uint64_t)))
-
 #define VCB_INIT_FLAG 1
 
 struct vcb {
@@ -19,7 +12,8 @@ struct vcb {
   size_t free_block_count;
   uint64_t flags;
 
-  char free_block_bm[REST_OF_BLOCK];
+  // Block bitmap just takes rest of the block
+  char free_block_bm[];
 };
 
 void vcb_init(struct vcb *vcb);

@@ -3,6 +3,8 @@
 #include <pthread.h>
 #include <string.h>
 
+#include "simple-fs.h"
+
 static pthread_spinlock_t vcb_lock;
 
 void vcb_init(struct vcb *vcb)
