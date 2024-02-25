@@ -5,7 +5,7 @@
 
 /* Raw blocks for storage.
  * Block 0 will always be the VCB.
- *
+ */
 char raw_blocks[BLOCK_COUNT][BLOCK_SIZE];
 
 void create(const char *name, size_t blocks)
