@@ -5,6 +5,11 @@
 
 #include "simple-fs.h"
 
+// VCB flags
+// VCB_INIT_FLAG: VCB has been initialized
+#define VCB_INIT_FLAG 1
+static uint64_t vcb_flags = 0;
+
 // Lock for accessing the VCB
 static pthread_spinlock_t vcb_lock;
 
@@ -17,7 +22,7 @@ static pthread_spinlock_t vcb_lock;
  */
 void vcb_init(struct vcb *vcb)
 {
-  if (VCB_INIT_FLAG & vcb->flags)
+  if (VCB_INIT_FLAG & vcb_flags)
     return;
   vcb->block_size = BLOCK_SIZE;
   vcb->block_count = BLOCK_COUNT;
@@ -29,7 +34,7 @@ void vcb_init(struct vcb *vcb)
   memset(vcb->free_block_bm, 0xFFFF, num_bytes);
 
   pthread_spin_init(&vcb_lock, 0);
-  vcb->flags |= VCB_INIT_FLAG;
+  vcb_flags |= VCB_INIT_FLAG;
 }
 
 /* Sets the block at block_num to free or not free in the VCB's free block
@@ -41,7 +46,7 @@ void vcb_init(struct vcb *vcb)
  */
 void vcb_set_block_free(struct vcb *vcb, size_t block_num, int free)
 {
-  if (VCB_INIT_FLAG & vcb->flags)
+  if (VCB_INIT_FLAG & vcb_flags)
     return;
   pthread_spin_lock(&vcb_lock);
 
@@ -66,7 +71,7 @@ void vcb_set_block_free(struct vcb *vcb, size_t block_num, int free)
  */
 int vcb_get_block_free(struct vcb *vcb, size_t block_num)
 {
-  if (VCB_INIT_FLAG & vcb->flags)
+  if (VCB_INIT_FLAG & vcb_flags)
     return -1;
   int free;
   pthread_spin_lock(&vcb_lock);
@@ -82,7 +87,7 @@ int vcb_get_block_free(struct vcb *vcb, size_t block_num)
  */
 size_t vcb_free_block_count(struct vcb *vcb)
 {
-  if (VCB_INIT_FLAG & vcb->flags)
+  if (VCB_INIT_FLAG & vcb_flags)
     return 0;
   size_t cnt;
   // Probably don't need this, on 64 bit systems

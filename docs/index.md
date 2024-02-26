@@ -1,6 +1,15 @@
 # Notes for Simple FS
 Notes for implementing the file system laid out in [this document](fs.pdf)
 
+## Data Structures
+The Simple FS will require many data structures, on disk and in memory, for managing each process's requests.
+### Volume Control Block (Superblock)
+The volume control block will sit on the first block of the file system and contain metadata about the file system. This includes the size of each block, the total number of blocks, the free number of blocks, and a bitmap for keeping track of free blocks. The first three attributes have obvious use cases, but the bitmap needs more explaining:
+- The bitmap keeps track of which blocks are used and which are free. The bitmap is a variable sized array of bytes that takes the rest of the first block's size. Each bit corresponds to a block number. 1 represents a free block, and 0 represents an occupied block.
+#### Operations
+1. vcb_init(struct vcb *vcb)
+    - Initializes the volume control block at the pointer. 
+
 ## The Public API
 The API provided to outside processes will consist of the following functions (inspiration from POSIX definitions):
 1. int create(const char *path, size_t blocks, [mode_t mode]?);
@@ -33,3 +42,15 @@ The API provided to outside processes will consist of the following functions (i
     - nbytes may be larger than create() asked for, fail on this
     - Need to handle concurrent writes from processes (Reader-Writer locks?)
     - Returns the number of bytes written or -1 on error
+### Our Implementation
+1. void create(const char *name, size_t blocks);
+
+2. int open(const char *name, int oflag);
+
+3. int close(int fd);
+
+4. ssize_t read(int fd, void *buf, size_t nbytes);
+
+5. ssize_t write(int fd, const void *buf, size_t nbytes);
+
+6. off_t lseek(int fd, off_t offset, int whence);

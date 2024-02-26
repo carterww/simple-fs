@@ -4,9 +4,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// VCB flags
-// VCB_INIT_FLAG: VCB has been initialized
-#define VCB_INIT_FLAG 1
 
 // Volume control block. Details the state of the file system.
 // Should be on block 0 of the file system.
@@ -14,7 +11,6 @@ struct vcb {
   size_t block_size;
   size_t block_count;
   size_t free_block_count;
-  uint64_t flags;
 
   // Block bitmap just takes rest of the block
   char free_block_bm[];
