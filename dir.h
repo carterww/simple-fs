@@ -7,12 +7,13 @@
 // Note: I think the FCB can just be placed
 // at the start of the file's first data block.
 // It will always be the first 8 bytes of that block.
+
+// File control block which details the state of the file.
 struct fcb {
   size_t file_size;
 };
 
-#define MAX_FILE_NAME_LEN 64
-
+// Directory entry. Details the file's name and starting block number.
 struct dentry {
   size_t start_block_num;
   size_t file_size;
@@ -20,6 +21,8 @@ struct dentry {
   char file_name[];
 };
 
+// Table of directory entries. Used for looking up files in the file system.
+// The table is stored on blocks 1-2 of the file system.
 struct dentry_table {
   size_t num_entries;
   size_t curr_size;
