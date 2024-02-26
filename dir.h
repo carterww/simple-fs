@@ -11,7 +11,7 @@ struct fcb {
   size_t file_size;
 };
 
-#define MAX_FILE_NAME_LEN 63
+#define MAX_FILE_NAME_LEN 64
 
 struct dentry {
   size_t start_block_num;
@@ -22,11 +22,11 @@ struct dentry {
 
 struct dentry_table {
   size_t num_entries;
-  size_t max_entries;
+  size_t curr_size;
   struct dentry entries[];
 };
 
-void dentry_table_init(struct dentry_table *table);
+void dentry_table_init(struct dentry_table *table, size_t nblocks);
 
 void dentry_add(struct dentry_table *table, struct dentry *entry);
 
