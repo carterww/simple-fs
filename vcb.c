@@ -31,6 +31,10 @@ void vcb_init(struct vcb *vcb)
   size_t num_bytes = BLOCK_COUNT / 8;
   if (BLOCK_COUNT % 8 != 0)
     ++num_bytes;
+  // Check if the VCB can fit the required bitmap
+  // TODO: This needs to return an error code
+  if (num_bytes > BLOCK_SIZE - sizeof(struct vcb))
+    return;
   memset(vcb->free_block_bm, 0xFFFF, num_bytes);
 
   pthread_spin_init(&vcb_lock, 0);
