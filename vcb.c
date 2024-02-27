@@ -11,17 +11,22 @@
 static uint64_t vcb_flags = 0;
 
 // Lock for accessing the VCB
+// NOT PERMANENT: If locking scheme in simple-fs.c is implemented, this lock
+// will be removed
 static pthread_spinlock_t vcb_lock;
+
+static int bm_get_idx(size_t block_num, size_t *idx);
 
 /* Initializes the VCB struct with the defined block size and block count.
  * Also initializes the free block bitmap to all 1s, indicating all blocks are
  * free.
  * @param vcb: The VCB struct to initialize. Should be on the first block
  * of the "disk."
+ * @param alloc_bytes: The number of bytes allocated for the VCB. This will
+ * allow the function to check if it has enough room for the bitmap.
  * @return: void
  */
-void vcb_init(struct vcb *vcb)
-{
+void vcb_init(struct vcb *vcb, size_t alloc_bytes) {
   if (VCB_INIT_FLAG & vcb_flags)
     return;
   vcb->block_size = BLOCK_SIZE;
@@ -31,9 +36,8 @@ void vcb_init(struct vcb *vcb)
   size_t num_bytes = BLOCK_COUNT / 8;
   if (BLOCK_COUNT % 8 != 0)
     ++num_bytes;
-  // Check if the VCB can fit the required bitmap
-  // TODO: This needs to return an error code
-  if (num_bytes > BLOCK_SIZE - sizeof(struct vcb))
+  // Prevents VCB from overflowing other buff
+  if (alloc_bytes < num_bytes + sizeof(struct vcb))
     return;
   memset(vcb->free_block_bm, 0xFFFF, num_bytes);
 
@@ -48,16 +52,20 @@ void vcb_init(struct vcb *vcb)
  * @param free: 0 to set the block to not free, otherwise set to free.
  * @return: void
  */
-void vcb_set_block_free(struct vcb *vcb, size_t block_num, int free)
-{
+void vcb_set_block_free(struct vcb *vcb, size_t block_num, int free) {
   if (VCB_INIT_FLAG & vcb_flags)
     return;
   pthread_spin_lock(&vcb_lock);
 
+  size_t idx;
+  if (!bm_get_idx(block_num, &idx)) {
+    return;
+  }
+
   int add_to_free = free ? 1 : -1;
   vcb->free_block_count += add_to_free;
 
-  char *byte = &vcb->free_block_bm[block_num / 8];
+  char *byte = &vcb->free_block_bm[idx];
   int bitnum = block_num % 8;
   if (free)
     *byte |= (1 << bitnum);
@@ -73,14 +81,16 @@ void vcb_set_block_free(struct vcb *vcb, size_t block_num, int free)
  * @return: -1 if the VCB is not initialized, 0 if the block is not free,
  * 1 if the block is free.
  */
-int vcb_get_block_free(struct vcb *vcb, size_t block_num)
-{
+int vcb_get_block_free(struct vcb *vcb, size_t block_num) {
   if (VCB_INIT_FLAG & vcb_flags)
     return -1;
   int free;
+  size_t idx;
+  if (!bm_get_idx(block_num, &idx)) {
+    return -1;
+  }
   pthread_spin_lock(&vcb_lock);
-  free = vcb->free_block_bm[block_num / 8]
-    & (1 << (block_num) % 8);
+  free = vcb->free_block_bm[block_num / 8] & (1 << (block_num) % 8);
   pthread_spin_unlock(&vcb_lock);
   return free;
 }
@@ -89,8 +99,7 @@ int vcb_get_block_free(struct vcb *vcb, size_t block_num)
  * @param vcb: The VCB struct to check.
  * @return: The number of free blocks.
  */
-size_t vcb_free_block_count(struct vcb *vcb)
-{
+size_t vcb_free_block_count(struct vcb *vcb) {
   if (VCB_INIT_FLAG & vcb_flags)
     return 0;
   size_t cnt;
@@ -99,4 +108,20 @@ size_t vcb_free_block_count(struct vcb *vcb)
   cnt = vcb->free_block_count;
   pthread_spin_unlock(&vcb_lock);
   return cnt;
+}
+
+/* Gets the index for accessing the VCB's free block bitmap.
+ * Checks if the block number is within the range of the bitmap.
+ * @param block_num: The block number to get the index for.
+ * @param idx: The index to set.
+ * @return: a non-zero value if the block number is out of range, 0 otherwise.
+ */
+static int bm_get_idx(size_t block_num, size_t *idx) {
+  size_t max_idx = BLOCK_COUNT / 8;
+  if (BLOCK_COUNT % 8 != 0)
+    ++max_idx;
+  *idx = block_num / 8;
+  if (*idx >= max_idx)
+    return -1;
+  return 0;
 }

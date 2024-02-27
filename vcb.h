@@ -16,7 +16,7 @@ struct vcb {
   char free_block_bm[];
 };
 
-void vcb_init(struct vcb *vcb);
+void vcb_init(struct vcb *vcb, size_t alloc_bytes);
 
 void vcb_set_block_free(struct vcb *vcb, size_t block_num, int free);
 

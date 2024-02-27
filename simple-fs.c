@@ -8,6 +8,27 @@
 #include "open-ft.h"
 #include "vcb.h"
 
+// NOT PERMANENT: These locks are just an idea for now
+// Will have to see how it plays out after implementing these
+// To prevent implementing a complex lock system, we should just have
+// one lock for each DS. Each FS call (open, create, read, etc.) can
+// lock the DS it needs in a specific order. This will prevent deadlocks
+// and will be easier to implement. The downside is that it will be much slower
+// if these DS are only being used for short periods of time in the functions.
+// If it gets too unwieldy, a simple solution would be to give each process OFT
+// their own lock. This will allow multiple processes to access their OFT and
+// the system OFT (read only) at the same time.
+
+/* Locking Scheme:
+ * 1. vcb_lock
+ * 2. dentry_table_lock
+ * 3. open_file_table_lock
+ * Unlock in reverse order
+ */
+static pthread_mutex_t vcb_lock;
+static pthread_mutex_t dentry_table_lock;
+static pthread_mutex_t open_file_table_lock;
+
 /* Raw blocks for storage. These blocks mimic a disk.
  * Block 0 will always be the VCB.
  * Block 1-2 will always be the dentry table.
@@ -81,7 +102,7 @@ void init_fs() {
   memset(raw_blocks, 0, sizeof(raw_blocks));
 
   struct vcb *vcb = (struct vcb *)raw_blocks[0];
-  vcb_init(vcb);
+  vcb_init(vcb, BLOCK_SIZE);
   vcb_set_block_free(vcb, 0, 0);
 
   struct dentry_table *table = (struct dentry_table *)raw_blocks[1];

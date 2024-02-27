@@ -3,17 +3,16 @@ Notes for implementing the file system laid out in [this document](fs.pdf)
 
 ## Data Structures
 The Simple FS will require many data structures, on disk and in memory, for managing each process's requests.
+
 ### Volume Control Block (Superblock)
-The volume control block will sit on the first block of the file system and contain metadata about the file system. This includes the size of each block, the total number of blocks, the free number of blocks, and a bitmap for keeping track of free blocks. The first three attributes have obvious use cases, but the bitmap needs more explaining:
+The volume control block will sit on the first block of the file system and contain metadata about the file system. This includes the size of each block, the total number of blocks, the free number of blocks, and a bitmap for keeping track of free blocks.
 - The bitmap keeps track of which blocks are used and which are free. The bitmap is a variable sized array of bytes that takes the rest of the first block's size. Each bit corresponds to a block number. 1 represents a free block, and 0 represents an occupied block.
-#### Operations
-1. vcb_init(struct vcb *vcb)
-    - Initializes the volume control block at the pointer. In normal use cases, this pointer should point to the the first block of disk. The block size, block count, and free block count are set to BLOCK_SIZE, BLOCK_COUNT, and BLOCK_COUNT respectively. The bitmap is then set to 0xFF at each byte to reflect that each block is free.
-    - This function also initializes the spinlock that will prevent race conditions between reads/writes on the VCB. Multiple processes will need to read/write values to the VCB to reflect changes to the underlying block allocations.
-2. vcb_set_block_free(struct vcb *vcb, size_t block_num, int free)
-    - Updates the bitmap in the VCB by setting the associated block at "block_num" to "free." If free is a non-zero value, the bit at block_num is set to 1. If free is zero, the bit is set to 0. These operations are wrapped in a "lock" and "unlock" call to prevent multiple blocks from writing at the same time.
-    - Higher level functions that allocate blocks will need their own lock in order to prevent multiple threads from thinking they own the same block. For example, two processes are creating a file of 1 block each. Both see that block 3 is free, so they both allocate block 3 for their file. Both threads write to bit 3 to indicate that block 3 is not free. If these instructions are intertwined in a certain way, two files will point to the same block.
-        - The higher level lock may render the VCB spin lock useless.
+
+### System Open File Table
+
+### Process Open File Table(s)
+
+### Directory Entry Table
 
 ## The Public API
 The API provided to outside processes will consist of the following functions (inspiration from POSIX definitions):
