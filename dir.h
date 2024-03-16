@@ -17,8 +17,7 @@ struct fcb {
 struct dentry {
   size_t start_block_num;
   size_t file_size;
-  uint8_t file_name_len;
-  char file_name[];
+  char file_name[8];
 };
 
 // Table of directory entries. Used for looking up files in the file system.
