@@ -21,6 +21,7 @@ static struct proc_oft *proc_oft_find(pid_t pid);
 static struct proc_oft *proc_oft_add(pid_t pid);
 static struct proc_oft_entry *
 proc_oft_entry_add(struct proc_oft *oft, struct sys_oft_entry *sys_entry);
+static struct proc_oft_entry * proc_oft_entry_get(struct proc_oft *oft, int fd);
 
 /* Initializes the system open file table by alocating space for SYS_OFT_LEN
  * entries. Also initializes the process open file tables by allocating space
@@ -87,6 +88,16 @@ int oft_open(struct dentry *dentry, struct fcb *fcb, int oflag) {
   }
 
   return (proc_entry - oft->entries);
+}
+
+struct proc_oft_entry *oft_get(int fd) {
+  pid_t caller = getpid();
+  struct proc_oft *oft = proc_oft_find(caller);
+  if (oft == NULL) {
+    return NULL;
+  }
+
+  return proc_oft_entry_get(oft, fd);
 }
 
 /* Closes a file for a process. Decrements the reference count of the file in
@@ -201,4 +212,10 @@ proc_oft_entry_add(struct proc_oft *oft, struct sys_oft_entry *sys_entry) {
   entry->file_pos = 0;
   ++oft->len;
   return entry;
+}
+
+static struct proc_oft_entry * proc_oft_entry_get(struct proc_oft *oft, int fd) {
+  if (fd >= oft->len)
+    return NULL;
+  return &oft->entries[fd];
 }

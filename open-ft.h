@@ -58,6 +58,8 @@ void oft_init();
 
 int oft_open(struct dentry *dentry, struct fcb *fcb, int oflag);
 
+struct proc_oft_entry *oft_get(int fd);
+
 int oft_close(int fd);
 
 void oft_free();

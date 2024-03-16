@@ -10,6 +10,7 @@
 
 // File control block which details the state of the file.
 struct fcb {
+  size_t start_block_num;
   size_t file_size;
 };
 
