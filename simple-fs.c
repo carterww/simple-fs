@@ -117,3 +117,7 @@ void init_fs() {
   // don't alloc them to raw blocks
   oft_init();
 }
+
+void close_fs() {
+
+}

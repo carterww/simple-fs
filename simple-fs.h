@@ -38,4 +38,6 @@ off_t lseek(int fd, off_t offset, int whence);
 
 void init_fs();
 
+void close_fs();
+
 #endif // SIMPLE_FS_H
