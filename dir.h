@@ -6,7 +6,7 @@
 
 // Note: I think the FCB can just be placed
 // at the start of the file's first data block.
-// It will always be the first 8 bytes of that block.
+// It will always be the first 16 bytes of that block.
 
 // File control block which details the state of the file.
 struct fcb {

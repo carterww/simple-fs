@@ -8,6 +8,8 @@
 #include "open-ft.h"
 #include "vcb.h"
 
+#define FIRST_DATA_BLOCK_IDX 3
+
 // NOT PERMANENT: These locks are just an idea for now
 // Will have to see how it plays out after implementing these
 // To prevent implementing a complex lock system, we should just have
@@ -29,6 +31,9 @@ static pthread_mutex_t vcb_lock;
 static pthread_mutex_t dentry_table_lock;
 static pthread_mutex_t open_file_table_lock;
 
+struct vcb *vcb = { 0 };
+struct dentry_table *dentry_table = { 0 };
+
 /* Raw blocks for storage. These blocks mimic a disk.
  * Block 0 will always be the VCB.
  * Block 1-2 will always be the dentry table.
@@ -41,7 +46,49 @@ char raw_blocks[BLOCK_COUNT][BLOCK_SIZE];
  * @param blocks: The number of blocks to allocate for the file.
  * @return: void
  */
-void create(const char *name, size_t blocks) {}
+void create(const char *name, size_t blocks) {
+  size_t start = FIRST_DATA_BLOCK_IDX;
+  size_t i = FIRST_DATA_BLOCK_IDX;
+  // Traverse blocks to find first fit
+  for (; i < BLOCK_COUNT; ++i) {
+    char *block = raw_blocks[i];
+    struct fcb *fcb = (struct fcb *)block; // Probably safe?
+    // Block is not free
+    // raw_blocks should be initialized to 0s
+    if (fcb->file_size != 0) {
+      start = i + 1;
+      continue;
+    }
+    if (i - start + 1 == blocks) {
+      break; // Found a fit
+    }
+  }
+  if (i == BLOCK_COUNT) {
+    // No space for file
+    return;
+  }
+
+  // Mark blocks as used
+  for (int j = start; j < start + blocks; ++j) {
+    vcb_set_block_free(vcb, j, 0);
+  }
+
+  // Add entry in dentry table
+  struct dentry entry = {
+    .start_block_num = start,
+    .file_size = blocks,
+  };
+  strncpy(entry.file_name, name, MAX_FILE_NAME_LEN);
+  dentry_add(dentry_table, &entry);
+
+  // Initialize FCB
+  char *block = raw_blocks[start];
+  struct fcb *fcb = (struct fcb *)block;
+  fcb->file_size = blocks;
+  fcb->start_block_num = start;
+
+  return;
+}
 
 /* Open a file for reading and/or writing.
  * @param name: The name of the file to open.
@@ -101,15 +148,15 @@ off_t lseek(int fd, off_t offset, int whence) { return 0; }
 void init_fs() {
   memset(raw_blocks, 0, sizeof(raw_blocks));
 
-  struct vcb *vcb = (struct vcb *)raw_blocks[0];
+  vcb = (struct vcb *)raw_blocks[0];
   vcb_init(vcb, BLOCK_SIZE);
   vcb_set_block_free(vcb, 0, 0);
 
-  struct dentry_table *table = (struct dentry_table *)raw_blocks[1];
+  dentry_table = (struct dentry_table *)raw_blocks[1];
   // Give dentry_table 2 blocks for 4KiB total
   // If we limit the len of file names to 64, we can fit minimum
   // 50 dentries in 4KB
-  dentry_table_init(table, 2);
+  dentry_table_init(dentry_table, 2);
   vcb_set_block_free(vcb, 1, 0);
   vcb_set_block_free(vcb, 2, 0);
 
