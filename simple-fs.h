@@ -4,7 +4,8 @@
 #include "stddef.h"
 #include "stdio.h"
 
-#define MAX_FILE_NAME_LEN 7
+// Including null terminator
+#define MAX_FILE_NAME_LEN 16
 
 // Seek settings for lseek() passed into whence
 // SFS_SEEK_SET: Set the file pointer to offset

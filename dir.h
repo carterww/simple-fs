@@ -1,6 +1,7 @@
 #ifndef SIMPLE_FS_DIR_H
 #define SIMPLE_FS_DIR_H
 
+#include "simple-fs.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -18,7 +19,7 @@ struct fcb {
 struct dentry {
   size_t start_block_num;
   size_t file_size;
-  char file_name[8];
+  char file_name[MAX_FILE_NAME_LEN];
 };
 
 // Table of directory entries. Used for looking up files in the file system.

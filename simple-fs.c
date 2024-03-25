@@ -41,7 +41,7 @@ struct dentry_table *dentry_table = { 0 };
 char raw_blocks[BLOCK_COUNT][BLOCK_SIZE];
 
 /* Create a file in the file system with the given name and number of blocks.
- * @param name: The name of the file to create. The name should be less than 64
+ * @param name: The name of the file to create. The name should be less than 7
  * characters.
  * @param blocks: The number of blocks to allocate for the file.
  * @return: void
@@ -79,6 +79,8 @@ void create(const char *name, size_t blocks) {
     .file_size = blocks,
   };
   strncpy(entry.file_name, name, MAX_FILE_NAME_LEN);
+  // Ensure null-terminated string
+  entry.file_name[MAX_FILE_NAME_LEN - 1] = '\0';
   dentry_add(dentry_table, &entry);
 
   // Initialize FCB
@@ -154,8 +156,6 @@ void init_fs() {
 
   dentry_table = (struct dentry_table *)raw_blocks[1];
   // Give dentry_table 2 blocks for 4KiB total
-  // If we limit the len of file names to 64, we can fit minimum
-  // 50 dentries in 4KB
   dentry_table_init(dentry_table, 2);
   vcb_set_block_free(vcb, 1, 0);
   vcb_set_block_free(vcb, 2, 0);
