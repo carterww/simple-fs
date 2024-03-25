@@ -10,11 +10,6 @@
 #define VCB_INIT_FLAG 1
 static uint64_t vcb_flags = 0;
 
-// Lock for accessing the VCB
-// NOT PERMANENT: If locking scheme in simple-fs.c is implemented, this lock
-// will be removed
-static pthread_spinlock_t vcb_lock;
-
 static int bm_get_idx(size_t block_num, size_t *idx);
 
 /* Initializes the VCB struct with the defined block size and block count.
@@ -41,7 +36,6 @@ void vcb_init(struct vcb *vcb, size_t alloc_bytes) {
     return;
   memset(vcb->free_block_bm, 0xFFFF, num_bytes);
 
-  pthread_spin_init(&vcb_lock, 0);
   vcb_flags |= VCB_INIT_FLAG;
 }
 
@@ -55,7 +49,6 @@ void vcb_init(struct vcb *vcb, size_t alloc_bytes) {
 void vcb_set_block_free(struct vcb *vcb, size_t block_num, int free) {
   if (VCB_INIT_FLAG & vcb_flags)
     return;
-  pthread_spin_lock(&vcb_lock);
 
   size_t idx;
   if (!bm_get_idx(block_num, &idx)) {
@@ -71,8 +64,6 @@ void vcb_set_block_free(struct vcb *vcb, size_t block_num, int free) {
     *byte |= (1 << bitnum);
   else
     *byte &= ~(1 << bitnum);
-
-  pthread_spin_unlock(&vcb_lock);
 }
 
 /* Returns whether the block at block_num is free or not.
@@ -89,9 +80,7 @@ int vcb_get_block_free(struct vcb *vcb, size_t block_num) {
   if (!bm_get_idx(block_num, &idx)) {
     return -1;
   }
-  pthread_spin_lock(&vcb_lock);
   free = vcb->free_block_bm[block_num / 8] & (1 << (block_num) % 8);
-  pthread_spin_unlock(&vcb_lock);
   return free;
 }
 
@@ -103,10 +92,7 @@ size_t vcb_free_block_count(struct vcb *vcb) {
   if (VCB_INIT_FLAG & vcb_flags)
     return 0;
   size_t cnt;
-  // Probably don't need this, on 64 bit systems
-  pthread_spin_lock(&vcb_lock);
   cnt = vcb->free_block_count;
-  pthread_spin_unlock(&vcb_lock);
   return cnt;
 }
 

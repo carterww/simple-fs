@@ -1,12 +1,13 @@
 #ifndef SIMPLE_FS_DIR_H
 #define SIMPLE_FS_DIR_H
 
+#include "simple-fs.h"
 #include <stddef.h>
 #include <stdint.h>
 
 // Note: I think the FCB can just be placed
 // at the start of the file's first data block.
-// It will always be the first 8 bytes of that block.
+// It will always be the first 16 bytes of that block.
 
 // File control block which details the state of the file.
 struct fcb {
@@ -18,7 +19,7 @@ struct fcb {
 struct dentry {
   size_t start_block_num;
   size_t file_size;
-  char file_name[8];
+  char file_name[MAX_FILE_NAME_LEN];
 };
 
 // Table of directory entries. Used for looking up files in the file system.
