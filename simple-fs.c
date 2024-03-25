@@ -31,8 +31,10 @@ static pthread_mutex_t vcb_lock;
 static pthread_mutex_t dentry_table_lock;
 static pthread_mutex_t open_file_table_lock;
 
-struct vcb *vcb = { 0 };
-struct dentry_table *dentry_table = { 0 };
+// TODO: Maybe extern these in impl files so
+// vcb and dentry don't have to be passed around
+struct vcb *vcb = NULL;
+struct dentry_table *dentry_table = NULL;
 
 /* Raw blocks for storage. These blocks mimic a disk.
  * Block 0 will always be the VCB.
@@ -70,6 +72,7 @@ void create(const char *name, size_t blocks) {
 
   // Mark blocks as used
   for (int j = start; j < start + blocks; ++j) {
+    // This alters free block count in VCB
     vcb_set_block_free(vcb, j, 0);
   }
 
