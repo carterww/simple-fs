@@ -1,5 +1,6 @@
 #include "simple-fs.h"
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -101,13 +102,22 @@ void create(const char *name, size_t blocks) {
  * @return: The file descriptor for the file, or -1 if the file could not be
  * opened.
  */
-int open(const char *name, int oflag) { return 0; }
+int open(const char *name, int oflag) {
+  struct dentry *entry = dentry_get(dentry_table, name);
+  if (entry == NULL) {
+    return -1;
+  }
+  struct fcb *file_fcb = (struct fcb*)raw_blocks[entry->start_block_num];
+  return oft_open(entry, file_fcb, 0);
+}
 
 /* Closes a previously opened file.
  * @param fd: The file descriptor of the file to close.
  * @return: 0 on success, or -1 if the file could not be closed.
  */
-int close(int fd) { return 0; }
+int close(int fd) { 
+  return oft_close(fd);
+}
 
 /* Read from a file at the current file offset. If the file offset is at the end
  * of the file, no bytes will be read. Call lseek to set the file offset prior
@@ -142,7 +152,25 @@ ssize_t write(int fd, const void *buf, size_t nbytes) { return 0; }
  * @return: The new file offset from the beginning of the file, or -1 if the
  * file offset could not be set.
  */
-off_t lseek(int fd, off_t offset, int whence) { return 0; }
+off_t lseek(int fd, off_t offset, int whence) {
+  struct proc_oft_entry *entry = oft_get(fd);
+  if (entry == NULL)
+    return -1;
+  switch (whence) {
+  case SFS_SEEK_CUR:
+    entry->file_pos += offset;
+  case SFS_SEEK_SET:
+    entry->file_pos = offset;
+    break;
+  case SFS_SEEK_END:
+    size_t bytes = entry->sys_entry->fcb->file_size * BLOCK_SIZE;
+    --bytes; // offset of 0 should put at last byte
+    entry->file_pos = bytes - offset;
+  default:
+    return -1;
+  }
+  return entry->file_pos;
+}
 
 /* Initialize the file system. This function should be called before any other
  * file system functions are called. This is not a public function like the

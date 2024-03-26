@@ -8,4 +8,4 @@ simulation: dir.o simple-fs.o open-ft.o vcb.o main.c
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 clean:
-	rm -f *.o simple-fs
+	rm -f *.o simulation

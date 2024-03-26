@@ -73,6 +73,8 @@ int oft_open(struct dentry *dentry, struct fcb *fcb, int oflag) {
 
   // Add to the process OFT
   pid_t caller = getpid();
+  // Debug message. This may be incorrect so want to check when in testable state
+  printf("Caller %d trying to open %s", caller, dentry->file_name);
   struct proc_oft *oft = proc_oft_find(caller);
   if (oft == NULL) {
     oft = proc_oft_add(caller);
@@ -151,10 +153,9 @@ static struct sys_oft_entry *sys_oft_add(struct dentry *dentry, struct fcb *fcb,
     return NULL;
   }
 
-  struct sys_oft_entry *entry = &sys_oft.entries[sys_oft.len];
+  struct sys_oft_entry *entry = &sys_oft.entries[sys_oft.len++];
   entry->dentry = dentry;
   entry->fcb = fcb;
-  ++sys_oft.len;
   atomic_init(&entry->ref_count, 0);
   return entry;
 }
@@ -165,7 +166,7 @@ static struct sys_oft_entry *sys_oft_add(struct dentry *dentry, struct fcb *fcb,
  * @return: The process open file table, or NULL if the table is not found.
  */
 static struct proc_oft *proc_oft_find(pid_t pid) {
-  for (size_t i = 0; i < proc_ofts.len; i++) {
+  for (size_t i = 0; i < proc_ofts.len; ++i) {
     if (proc_ofts.ofts[i].pid == pid) {
       return &proc_ofts.ofts[i];
     }
@@ -188,9 +189,10 @@ static struct proc_oft *proc_oft_add(pid_t pid) {
     perror("malloc");
     exit(1);
   }
-  oft->pid = pid;
   oft->entries = entries;
+  oft->len = 0;
   oft->cap = PROC_OFT_LEN;
+  oft->pid = pid;
 
   ++proc_ofts.len;
   return oft;
@@ -207,10 +209,9 @@ proc_oft_entry_add(struct proc_oft *oft, struct sys_oft_entry *sys_entry) {
   if (oft->len == oft->cap) {
     return NULL;
   }
-  struct proc_oft_entry *entry = &oft->entries[oft->len];
+  struct proc_oft_entry *entry = &oft->entries[oft->len++];
   entry->sys_entry = sys_entry;
   entry->file_pos = 0;
-  ++oft->len;
   return entry;
 }
 
