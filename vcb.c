@@ -47,11 +47,11 @@ void vcb_init(struct vcb *vcb, size_t alloc_bytes) {
  * @return: void
  */
 void vcb_set_block_free(struct vcb *vcb, size_t block_num, int free) {
-  if (VCB_INIT_FLAG & vcb_flags)
+  if (!(VCB_INIT_FLAG & vcb_flags))
     return;
 
   size_t idx;
-  if (!bm_get_idx(block_num, &idx)) {
+  if (bm_get_idx(block_num, &idx)) {
     return;
   }
 
@@ -70,17 +70,18 @@ void vcb_set_block_free(struct vcb *vcb, size_t block_num, int free) {
  * @param vcb: The VCB struct to check.
  * @param block_num: The block number to check.
  * @return: -1 if the VCB is not initialized, 0 if the block is not free,
- * 1 if the block is free.
+ * non-zero if the block is free.
  */
 int vcb_get_block_free(struct vcb *vcb, size_t block_num) {
-  if (VCB_INIT_FLAG & vcb_flags)
+  if (!(VCB_INIT_FLAG & vcb_flags))
     return -1;
+
   int free;
   size_t idx;
-  if (!bm_get_idx(block_num, &idx)) {
+  if (bm_get_idx(block_num, &idx)) {
     return -1;
   }
-  free = vcb->free_block_bm[block_num / 8] & (1 << (block_num) % 8);
+  free = vcb->free_block_bm[idx] & (1 << ((block_num) % 8));
   return free;
 }
 
@@ -89,8 +90,8 @@ int vcb_get_block_free(struct vcb *vcb, size_t block_num) {
  * @return: The number of free blocks.
  */
 size_t vcb_free_block_count(struct vcb *vcb) {
-  if (VCB_INIT_FLAG & vcb_flags)
-    return 0;
+  if (!(VCB_INIT_FLAG & vcb_flags))
+    return -1;
   size_t cnt;
   cnt = vcb->free_block_count;
   return cnt;
@@ -107,7 +108,7 @@ static int bm_get_idx(size_t block_num, size_t *idx) {
   if (BLOCK_COUNT % 8 != 0)
     ++max_idx;
   *idx = block_num / 8;
-  if (*idx >= max_idx)
+  if (*idx > max_idx)
     return -1;
   return 0;
 }
