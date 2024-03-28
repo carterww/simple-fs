@@ -9,6 +9,8 @@
 
 #include "simple-fs.h"
 #include "vcb.h"
+#include "open-ft.h"
+#include "dir.h"
 
 enum test_what {
   TEST_ALL,
@@ -21,6 +23,7 @@ static enum test_what test_what = TEST_ALL;
 
 static size_t tests = 0;
 static size_t passed_tests = 0;
+
 void assert(int expr, char *msg) {
   ++tests;
   if (expr) {
@@ -40,7 +43,6 @@ void test_vcb() {
   char block[BLOCK_SIZE];
   struct vcb *vcb = (struct vcb *) block;
   vcb_init(vcb, BLOCK_SIZE);
-  printf("VCB initialized\n");
 
   vcb_set_block_free(vcb, 0, 0);
   assert(vcb_get_block_free(vcb, 0) == 0, "VCB -- Superblock not free");
@@ -60,10 +62,44 @@ void test_vcb() {
 }
 
 void test_oft() {
-
+  oft_init();
+  struct dentry dentry = {
+    .file_name = "test.txt",
+    .file_size = 1,
+    .start_block_num = 0,
+  };
+  struct fcb fcb = {
+    .start_block_num = 0,
+    .file_size = 1,
+  };
+  int oft_index = oft_open(&dentry, &fcb, 0);
+  char buff[128];
+  sprintf(buff, "OFT -- File opened at index %d", oft_index);
+  assert(oft_index >= 0,buff);
+  struct proc_oft_entry *entry = oft_get(oft_index);
+  assert(entry != NULL, "OFT -- File retrieved from OFT");
+  assert(entry->file_pos == 0, "OFT -- File position initialized");
+  assert(entry->sys_entry->ref_count == 1, "OFT -- Reference count incremented");
+  assert(entry->sys_entry->fcb == &fcb, "OFT -- FCB set correctly");
+  assert(entry->sys_entry->dentry == &dentry, "OFT -- Dentry set correctly");
 }
 
-void test_dentry() {}
+void test_dentry() {
+  char blocks[2][BLOCK_SIZE];
+  struct dentry_table *table = (struct dentry_table *) blocks[0];
+  dentry_table_init(table, 2);
+
+  struct dentry dentry = {
+    .file_name = "test.txt",
+    .file_size = 1,
+    .start_block_num = 0,
+  };
+  dentry_add(table, &dentry);
+  struct dentry *dentry_fget = dentry_get(table, "test.txt");
+  assert(dentry_fget->file_size == 1, "Dentry -- File size set");
+  assert(dentry_fget->start_block_num == 0, "Dentry -- Start block number set");
+  assert(strcmp(dentry_fget->file_name, "test.txt") == 0, "Dentry -- File name set");
+}
 
 int main(int argc, char *argv[]) {
   if (argc > 1) {

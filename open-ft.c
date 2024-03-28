@@ -74,7 +74,7 @@ int oft_open(struct dentry *dentry, struct fcb *fcb, int oflag) {
   // Add to the process OFT
   pid_t caller = getpid();
   // Debug message. This may be incorrect so want to check when in testable state
-  printf("Caller %d trying to open %s", caller, dentry->file_name);
+  //printf("Caller %d trying to open %s", caller, dentry->file_name);
   struct proc_oft *oft = proc_oft_find(caller);
   if (oft == NULL) {
     oft = proc_oft_add(caller);
