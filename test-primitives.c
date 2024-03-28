@@ -96,9 +96,11 @@ void test_dentry() {
   };
   dentry_add(table, &dentry);
   struct dentry *dentry_fget = dentry_get(table, "test.txt");
+  assert(dentry_fget != NULL, "Dentry -- File retrieved from dentry table");
   assert(dentry_fget->file_size == 1, "Dentry -- File size set");
   assert(dentry_fget->start_block_num == 0, "Dentry -- Start block number set");
   assert(strcmp(dentry_fget->file_name, "test.txt") == 0, "Dentry -- File name set");
+  assert(dentry_fget != &dentry, "Dentry -- File copied to table");
 }
 
 int main(int argc, char *argv[]) {
@@ -114,34 +116,40 @@ int main(int argc, char *argv[]) {
 
   switch (test_what) {
     case TEST_ALL:
+      printf("Running all tests...\n");
       test_dentry();
       dentry_tests = tests;
       dentry_passed = passed_tests;
+      printf("\n");
       test_vcb();
       vcb_tests = tests - dentry_tests;
       vcb_passed = passed_tests - dentry_passed;
+      printf("\n");
       test_oft();
       oft_tests = tests - vcb_tests - dentry_tests;
       oft_passed = passed_tests - vcb_passed - dentry_passed;
       break;
     case TEST_DENTRY:
+      printf("Running dentry tests...\n");
       test_dentry();
       dentry_tests = tests;
       dentry_passed = passed_tests;
       break;
     case TEST_VCB:
+      printf("Running vcb tests...\n");
       test_vcb();
       vcb_tests = tests;
       vcb_passed = passed_tests;
       break;
     case TEST_OFT:
+      printf("Running oft tests...\n");
       test_oft();
       oft_tests = tests;
       oft_passed = passed_tests;
       break;
   }
 
-  printf("=== TEST RESULTS ===\n");
+  printf("\n=== TEST RESULTS ===\n");
   printf("Dentry tests:    %lu/%lu\n", dentry_passed, dentry_tests);
   printf("VCB tests:       %lu/%lu\n", vcb_passed, vcb_tests);
   printf("OFT tests:       %lu/%lu\n", oft_passed, oft_tests);
