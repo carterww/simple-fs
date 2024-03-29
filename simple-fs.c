@@ -32,6 +32,8 @@ static pthread_mutex_t vcb_lock;
 static pthread_mutex_t dentry_table_lock;
 static pthread_mutex_t open_file_table_lock;
 
+static int find_free_blocks(size_t *start, size_t blocks);
+
 // TODO: Maybe extern these in impl files so
 // vcb and dentry don't have to be passed around
 struct vcb *vcb = NULL;
@@ -50,26 +52,8 @@ char raw_blocks[BLOCK_COUNT][BLOCK_SIZE];
  * @return: void
  */
 void create(const char *name, size_t blocks) {
-  size_t start = FIRST_DATA_BLOCK_IDX;
-  size_t i = FIRST_DATA_BLOCK_IDX;
-  size_t bit_read_cnt = 0;
-  unsigned long word;
-  // Traverse blocks to find first fit
-  while (i < BLOCK_COUNT) {
-    size_t num_bytes = vcb_get_bm_word(vcb, i / 8, &word);
-    for (int j = 0; j < sizeof(unsigned long) * num_bytes; ++j, ++i) {
-      // If word is 0 at spot, then block is not free, continue
-      if (word ^ (1 << j)) {
-        start = i + 1;
-        continue;
-      }
-      if (i - start + 1 == blocks) {
-        goto out_while; // Found a fit
-      }
-    }
-  }
-out_while:
-  if (i == BLOCK_COUNT) {
+  size_t start;
+  if (find_free_blocks(&start, blocks)) {
     // No space for file
     return;
   }
@@ -201,4 +185,30 @@ void init_fs() {
 
 void close_fs() {
 
+}
+
+static int find_free_blocks(size_t *start, size_t blocks) {
+  *start = FIRST_DATA_BLOCK_IDX;
+  size_t i = FIRST_DATA_BLOCK_IDX;
+  unsigned long word;
+  // Traverse blocks to find first fit
+  while (i < BLOCK_COUNT) {
+    size_t num_bytes = vcb_get_bm_word(vcb, i / 8, &word);
+    for (int j = 0; j < sizeof(unsigned long) * num_bytes; ++j, ++i) {
+      // If word is 0 at spot, then block is not free, continue
+      if (word ^ (1 << j)) {
+        *start = i + 1;
+        continue;
+      }
+      if (i - *start + 1 == blocks) {
+        goto out_while; // Found a fit
+      }
+    }
+  }
+out_while:
+  if (i >= BLOCK_COUNT) {
+    // No space for file
+    return -1;
+  }
+  return 0;
 }
