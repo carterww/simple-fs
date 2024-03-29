@@ -24,4 +24,6 @@ int vcb_get_block_free(struct vcb *vcb, size_t block_num);
 
 size_t vcb_free_block_count(struct vcb *vcb);
 
+size_t vcb_get_bm_word(struct vcb *vcb, size_t idx, unsigned long *word);
+
 #endif // SIMPLE_FS_VCB_H

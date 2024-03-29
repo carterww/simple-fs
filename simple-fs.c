@@ -52,20 +52,23 @@ char raw_blocks[BLOCK_COUNT][BLOCK_SIZE];
 void create(const char *name, size_t blocks) {
   size_t start = FIRST_DATA_BLOCK_IDX;
   size_t i = FIRST_DATA_BLOCK_IDX;
+  size_t bit_read_cnt = 0;
+  unsigned long word;
   // Traverse blocks to find first fit
-  for (; i < BLOCK_COUNT; ++i) {
-    char *block = raw_blocks[i];
-    struct fcb *fcb = (struct fcb *)block; // Probably safe?
-    // Block is not free
-    // raw_blocks should be initialized to 0s
-    if (fcb->file_size != 0) {
-      start = i + 1;
-      continue;
-    }
-    if (i - start + 1 == blocks) {
-      break; // Found a fit
+  while (i < BLOCK_COUNT) {
+    size_t num_bytes = vcb_get_bm_word(vcb, i / 8, &word);
+    for (int j = 0; j < sizeof(unsigned long) * num_bytes; ++j, ++i) {
+      // If word is 0 at spot, then block is not free, continue
+      if (word ^ (1 << j)) {
+        start = i + 1;
+        continue;
+      }
+      if (i - start + 1 == blocks) {
+        goto out_while; // Found a fit
+      }
     }
   }
+out_while:
   if (i == BLOCK_COUNT) {
     // No space for file
     return;
