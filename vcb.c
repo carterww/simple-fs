@@ -97,6 +97,22 @@ size_t vcb_free_block_count(struct vcb *vcb) {
   return cnt;
 }
 
+size_t vcb_get_bm_word(struct vcb *vcb, size_t idx, unsigned long *word) {
+  if (!(VCB_INIT_FLAG & vcb_flags))
+    return -1;
+  size_t max_idx = BLOCK_COUNT / 8;
+  if (BLOCK_COUNT % 8 != 0)
+    ++max_idx;
+  *word = 0;
+  int i;
+  for (i = 0; i < 8 && i < max_idx; ++i) {
+    unsigned long byte = vcb->free_block_bm[idx + i];
+    byte &= 0xFF;
+    *word |= byte << (i * 8);
+  }
+  return i;
+}
+
 /* Gets the index for accessing the VCB's free block bitmap.
  * Checks if the block number is within the range of the bitmap.
  * @param block_num: The block number to get the index for.

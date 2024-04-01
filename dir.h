@@ -27,12 +27,13 @@ struct dentry {
 struct dentry_table {
   size_t num_entries;
   size_t curr_size;
+  size_t max_size;
   struct dentry entries[];
 };
 
 void dentry_table_init(struct dentry_table *table, size_t nblocks);
 
-void dentry_add(struct dentry_table *table, struct dentry *entry);
+int dentry_add(struct dentry_table *table, struct dentry *entry);
 
 struct dentry *dentry_get(struct dentry_table *table, const char *file_name);
 

@@ -211,7 +211,7 @@ proc_oft_entry_add(struct proc_oft *oft, struct sys_oft_entry *sys_entry) {
   }
   struct proc_oft_entry *entry = &oft->entries[oft->len++];
   entry->sys_entry = sys_entry;
-  entry->file_pos = 0;
+  entry->file_pos = sizeof(struct fcb);
   return entry;
 }
 
