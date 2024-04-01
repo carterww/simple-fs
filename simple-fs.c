@@ -116,7 +116,43 @@ int close(int fd) {
  * @return: The number of bytes read, -1 if the file could not be read, or EOF
  * if the file offset is at the end of the file after the read.
  */
-ssize_t read(int fd, void *buf, size_t nbytes) { return 0; }
+ssize_t read(int fd, void *buf, size_t nbytes) { 
+	off_t current_pos = lseek(fd, 0, SFS_SEEK_CUR);
+	if (current_pos == -1)
+		return -1; // error in lseek
+	
+	struct proc_oft_entry *entry = oft_get(fd);
+	if (entry == NULL || buf == NULL)
+		return -1;
+	
+	//Calculate the starting block and offset within that block
+	size_t block_idx = current_pos / BLOCK_SIZE;
+	size_t offset = current_pos % BLOCK_SIZE;
+	ssize_t bytes_read = 0;
+	
+	while (bytes_read < nbytes){
+		size_t current_block = block_idx;
+		size_t remaining_bytes = nbytes - bytes_read;
+		size_t read_size = remaining_bytes;
+
+		memcpy(buf + bytes_read, &raw_blocks[current_block][offset], read_size);
+
+		bytes_read += read_size;
+
+		current_pos += read_size;
+		block_idx = current_pos / BLOCK_SIZE;
+		offset = current_pos % BLOCK_SIZE;
+
+		if (read_size == 0)
+		       	break;
+	}
+	
+	//update file position
+	if (lseek(fd, current_pos, SFS_SEEK_SET == -1))
+		return -1;
+			
+	return bytes_read;
+}
 
 /* Write to a file at the current file offset. If the number of bytes
  * to be written is greater than the number of bytes to the end of the file,
@@ -127,7 +163,42 @@ ssize_t read(int fd, void *buf, size_t nbytes) { return 0; }
  * @return: The number of bytes written or -1 if the file could not be written
  * to.
  */
-ssize_t write(int fd, const void *buf, size_t nbytes) { return 0; }
+ssize_t write(int fd, const void *buf, size_t nbytes) {
+	off_t current_pos = lseek(fd, 0, SFS_SEEK_CUR);
+	if (current_pos == -1)
+		return -1;
+
+	struct proc_oft_entry *entry = oft_get(fd);
+	if(entry == NULL || buf == NULL)
+		return -1;
+
+	size_t block_idx = current_pos / BLOCK_SIZE;
+	size_t offset = current_pos % BLOCK_SIZE;
+	ssize_t bytes_written = 0;
+
+	while (bytes_written < nbytes){
+		size_t current_block = block_idx;
+		size_t remaining_space = BLOCK_SIZE - offset;
+		size_t remaining_bytes = nbytes - bytes_written;
+		size_t write_size = remaining_space < remaining_bytes ? remaining_space : remaining_bytes;
+
+		//Write data to current block
+		memcpy(&raw_blocks[current_block][offset], buf + bytes_written, write_size);
+
+		bytes_written += write_size;
+		current_pos += write_size; //updating file position
+		block_idx = current_pos / BLOCK_SIZE; //updating block index
+		offset = current_pos % BLOCK_SIZE; //updating offset within the block
+	}
+
+	//update the file position in the process using lseek
+	if (lseek(fd, current_pos, SFS_SEEK_SET) == -1)
+	       return -1;
+	
+	//printf("%ld,\n", nbytes);
+	
+	return bytes_written;
+}
 
 /* Set the file offset for a file in number of bytes from the beginning, the
  * current file offset, or the end of the file.
