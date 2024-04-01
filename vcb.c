@@ -105,8 +105,11 @@ size_t vcb_get_bm_word(struct vcb *vcb, size_t idx, unsigned long *word) {
     ++max_idx;
   *word = 0;
   int i;
-  for (i = 0; i < 8 && i < max_idx; ++i)
-    *word |= vcb->free_block_bm[idx + i] << (i * 8);
+  for (i = 0; i < 8 && i < max_idx; ++i) {
+    unsigned long byte = vcb->free_block_bm[idx + i];
+    byte &= 0xFF;
+    *word |= byte << (i * 8);
+  }
   return i;
 }
 

@@ -1,5 +1,6 @@
 #include "simple-fs.h"
 
+#include <pthread.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,9 +29,25 @@
  * 3. open_file_table_lock
  * Unlock in reverse order
  */
-static pthread_mutex_t vcb_lock;
-static pthread_mutex_t dentry_table_lock;
-static pthread_mutex_t open_file_table_lock;
+static pthread_mutex_t vcb_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t dentry_table_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t open_file_table_lock = PTHREAD_MUTEX_INITIALIZER;
+
+inline void lock_all();
+
+void lock_all() {
+  pthread_mutex_lock(&vcb_lock);
+  pthread_mutex_lock(&dentry_table_lock);
+  pthread_mutex_lock(&open_file_table_lock);
+}
+
+inline void unlock_all();
+
+void unlock_all() {
+  pthread_mutex_unlock(&open_file_table_lock);
+  pthread_mutex_unlock(&dentry_table_lock);
+  pthread_mutex_unlock(&vcb_lock);
+}
 
 static int find_free_blocks(size_t *start, size_t blocks);
 
@@ -52,6 +69,8 @@ char raw_blocks[BLOCK_COUNT][BLOCK_SIZE];
  * @return: void
  */
 void create(const char *name, size_t blocks) {
+  lock_all();
+
   size_t start;
   if (find_free_blocks(&start, blocks)) {
     // No space for file
@@ -79,6 +98,8 @@ void create(const char *name, size_t blocks) {
   struct fcb *fcb = (struct fcb *)block;
   fcb->file_size = blocks;
   fcb->start_block_num = start;
+
+  unlock_all();
 
   return;
 }
@@ -117,16 +138,21 @@ int close(int fd) {
  * if the file offset is at the end of the file after the read.
  */
 ssize_t read(int fd, void *buf, size_t nbytes) { 
-	off_t current_pos = lseek(fd, 0, SFS_SEEK_CUR);
-	if (current_pos == -1)
-		return -1; // error in lseek
-	
 	struct proc_oft_entry *entry = oft_get(fd);
-	if (entry == NULL || buf == NULL)
+	if (entry == NULL || buf == NULL) {
 		return -1;
+  }
+  struct fcb *fcb = entry->sys_entry->fcb;
+  // Make sure we don't read past the end of the file
+  size_t max_file_size = fcb->file_size * BLOCK_SIZE;
+  if (nbytes > max_file_size - entry->file_pos) {
+    nbytes = max_file_size - entry->file_pos;
+  }
 	
+  // Get current file position
+  off_t current_pos = entry->file_pos;
 	//Calculate the starting block and offset within that block
-	size_t block_idx = current_pos / BLOCK_SIZE;
+	size_t block_idx = fcb->start_block_num;
 	size_t offset = current_pos % BLOCK_SIZE;
 	ssize_t bytes_read = 0;
 	
@@ -140,16 +166,15 @@ ssize_t read(int fd, void *buf, size_t nbytes) {
 		bytes_read += read_size;
 
 		current_pos += read_size;
-		block_idx = current_pos / BLOCK_SIZE;
+		block_idx = (current_pos / BLOCK_SIZE) + fcb->start_block_num;
 		offset = current_pos % BLOCK_SIZE;
 
 		if (read_size == 0)
-		       	break;
+		  break;
 	}
-	
-	//update file position
-	if (lseek(fd, current_pos, SFS_SEEK_SET == -1))
-		return -1;
+
+  // Update file position
+  entry->file_pos = current_pos;
 			
 	return bytes_read;
 }
@@ -164,15 +189,21 @@ ssize_t read(int fd, void *buf, size_t nbytes) {
  * to.
  */
 ssize_t write(int fd, const void *buf, size_t nbytes) {
-	off_t current_pos = lseek(fd, 0, SFS_SEEK_CUR);
-	if (current_pos == -1)
-		return -1;
-
 	struct proc_oft_entry *entry = oft_get(fd);
-	if(entry == NULL || buf == NULL)
+	if(entry == NULL || buf == NULL) {
 		return -1;
+  }
 
-	size_t block_idx = current_pos / BLOCK_SIZE;
+  struct fcb *fcb = entry->sys_entry->fcb;
+  size_t max_file_size = fcb->file_size * BLOCK_SIZE;
+  // Check if we have enough room to write
+  if (max_file_size - entry->file_pos < nbytes) {
+    return -1;
+  }
+
+  off_t current_pos = entry->file_pos;
+
+	size_t block_idx = fcb->start_block_num;
 	size_t offset = current_pos % BLOCK_SIZE;
 	ssize_t bytes_written = 0;
 
@@ -187,16 +218,13 @@ ssize_t write(int fd, const void *buf, size_t nbytes) {
 
 		bytes_written += write_size;
 		current_pos += write_size; //updating file position
-		block_idx = current_pos / BLOCK_SIZE; //updating block index
+		block_idx = (current_pos / BLOCK_SIZE) + fcb->start_block_num; //updating block index
 		offset = current_pos % BLOCK_SIZE; //updating offset within the block
 	}
 
-	//update the file position in the process using lseek
-	if (lseek(fd, current_pos, SFS_SEEK_SET) == -1)
-	       return -1;
-	
-	//printf("%ld,\n", nbytes);
-	
+  // Update file position
+  entry->file_pos = current_pos;
+
 	return bytes_written;
 }
 
@@ -226,6 +254,12 @@ off_t lseek(int fd, off_t offset, int whence) {
     entry->file_pos = bytes - offset;
   default:
     return -1;
+  }
+  // Ensure file position is within bounds
+  if (entry->file_pos < sizeof(struct fcb)) {
+    entry->file_pos = sizeof(struct fcb);
+  } else if (entry->file_pos > entry->sys_entry->fcb->file_size * BLOCK_SIZE) {
+    entry->file_pos = entry->sys_entry->fcb->file_size * BLOCK_SIZE;
   }
   return entry->file_pos;
 }
@@ -260,14 +294,14 @@ void close_fs() {
 
 static int find_free_blocks(size_t *start, size_t blocks) {
   *start = FIRST_DATA_BLOCK_IDX;
-  size_t i = FIRST_DATA_BLOCK_IDX;
   unsigned long word;
   // Traverse blocks to find first fit
+  size_t i = 0;
   while (i < BLOCK_COUNT) {
-    size_t num_bytes = vcb_get_bm_word(vcb, i / 8, &word);
+    size_t num_bytes = vcb_get_bm_word(vcb, i / 64, &word);
     for (int j = 0; j < sizeof(unsigned long) * num_bytes; ++j, ++i) {
       // If word is 0 at spot, then block is not free, continue
-      if (word ^ (1 << j)) {
+      if (!(word & (1 << j))) {
         *start = i + 1;
         continue;
       }

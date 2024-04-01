@@ -78,7 +78,7 @@ void test_oft() {
   assert(oft_index >= 0,buff);
   struct proc_oft_entry *entry = oft_get(oft_index);
   assert(entry != NULL, "OFT -- File retrieved from OFT");
-  assert(entry->file_pos == 0, "OFT -- File position initialized");
+  assert(entry->file_pos == sizeof(struct fcb), "OFT -- File position initialized");
   assert(entry->sys_entry->ref_count == 1, "OFT -- Reference count incremented");
   assert(entry->sys_entry->fcb == &fcb, "OFT -- FCB set correctly");
   assert(entry->sys_entry->dentry == &dentry, "OFT -- Dentry set correctly");

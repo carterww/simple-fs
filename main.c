@@ -31,12 +31,12 @@ void *p2_and_p3_thread(void *arg) {
   // Open file 1, read from it, print it, and close it
   int fd = open(file_name, 0);
   if (fd == -1) {
-    printf("Failed to open file1\n");
+    printf("Failed to open %s\n", file_name);
     return NULL;
   }
   char buf[BLOCK_SIZE];
   read(fd, buf, sizeof(buf));
-  printf("file1: %s\n", buf);
+  printf("%s: %s\n", file_name, buf);
   close(fd);
   return NULL;
 }
