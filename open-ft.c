@@ -3,7 +3,7 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <sys/syscall.h>
 
 // System Open File Table
 static struct sys_oft sys_oft;
@@ -72,9 +72,8 @@ int oft_open(struct dentry *dentry, struct fcb *fcb, int oflag) {
   atomic_fetch_add(&entry->ref_count, 1);
 
   // Add to the process OFT
-  pid_t caller = getpid();
+  pid_t caller = syscall(SYS_gettid);
   // Debug message. This may be incorrect so want to check when in testable state
-  //printf("Caller %d trying to open %s", caller, dentry->file_name);
   struct proc_oft *oft = proc_oft_find(caller);
   if (oft == NULL) {
     oft = proc_oft_add(caller);
@@ -93,7 +92,7 @@ int oft_open(struct dentry *dentry, struct fcb *fcb, int oflag) {
 }
 
 struct proc_oft_entry *oft_get(int fd) {
-  pid_t caller = getpid();
+  pid_t caller = syscall(SYS_gettid);
   struct proc_oft *oft = proc_oft_find(caller);
   if (oft == NULL) {
     return NULL;
@@ -109,7 +108,43 @@ struct proc_oft_entry *oft_get(int fd) {
  * @param fd: The index of the file in the process open file table.
  * @return: 0 if the file was closed, -1 if the file could not be closed.
  */
-int oft_close(int fd) { return 0; }
+int oft_close(int fd) {
+  pid_t caller = syscall(SYS_gettid);
+  struct proc_oft *oft = proc_oft_find(caller);
+  if (oft == NULL) {
+    return -1;
+  }
+
+  struct proc_oft_entry *entry = &oft->entries[fd];
+  if (entry->sys_entry == NULL) {
+    return -1;
+  }
+
+  struct sys_oft_entry *sys_entry = entry->sys_entry;
+  atomic_fetch_sub(&sys_entry->ref_count, 1);
+  if (atomic_load(&sys_entry->ref_count) == 0) {
+    // Remove from system OFT
+    sys_entry->dentry = NULL;
+    sys_entry->fcb = NULL;
+    --sys_oft.len;
+  }
+
+  // Remove from process OFT
+  entry->sys_entry = NULL;
+  entry->file_pos = 0;
+  --oft->len;
+
+  // If process's OFT is empty, remove it
+  // This is inefficient and a better approach could be
+  // taken
+  if (oft->len == 0) {
+    free(oft->entries);
+    oft->cap = 0;
+    oft->pid = 0;
+  }
+
+  return 0;
+}
 
 /* Free the system and process open file tables.
  * @return: void
@@ -119,8 +154,9 @@ void oft_free() {
   free(sys_oft.entries);
 
   // Proc OFTs
-  for (size_t i = 0; i < proc_ofts.len; i++) {
-    free(proc_ofts.ofts[i].entries);
+  for (size_t i = 0; i < proc_ofts.cap; ++i) {
+    if (proc_ofts.ofts[i].pid != 0)
+      free(proc_ofts.ofts[i].entries);
   }
   free(proc_ofts.ofts);
 }
@@ -153,11 +189,19 @@ static struct sys_oft_entry *sys_oft_add(struct dentry *dentry, struct fcb *fcb,
     return NULL;
   }
 
-  struct sys_oft_entry *entry = &sys_oft.entries[sys_oft.len++];
-  entry->dentry = dentry;
-  entry->fcb = fcb;
-  atomic_init(&entry->ref_count, 0);
-  return entry;
+  // Find first empty slot
+  for (size_t i = 0; i < sys_oft.cap; ++i) {
+    if (sys_oft.entries[i].dentry == NULL) {
+      struct sys_oft_entry *entry = &sys_oft.entries[i];
+      entry->dentry = dentry;
+      entry->fcb = fcb;
+      atomic_init(&entry->ref_count, 0);
+      ++sys_oft.len;
+      return entry;
+    }
+  }
+  // Out of space. This should not happen if the system is working correctly.
+  return NULL;
 }
 
 /* Find a process open file table. A process's open file table
@@ -182,20 +226,26 @@ static struct proc_oft *proc_oft_add(pid_t pid) {
   if (proc_ofts.len == proc_ofts.cap) {
     return NULL;
   }
-  struct proc_oft *oft = &proc_ofts.ofts[proc_ofts.len];
-  struct proc_oft_entry *entries =
-      malloc(sizeof(struct proc_oft_entry) * PROC_OFT_LEN);
-  if (entries == NULL) {
-    perror("malloc");
-    exit(1);
+  // Find first empty slot
+  for (size_t i = 0; i < proc_ofts.cap; ++i) {
+    if (proc_ofts.ofts[i].pid == 0) {
+      struct proc_oft *oft = &proc_ofts.ofts[i];
+      struct proc_oft_entry *entries =
+          malloc(sizeof(struct proc_oft_entry) * PROC_OFT_LEN);
+      if (entries == NULL) {
+        perror("malloc");
+        exit(1);
+      }
+      memset(entries, 0, sizeof(struct proc_oft_entry) * PROC_OFT_LEN);
+      oft->entries = entries;
+      oft->len = 0;
+      oft->cap = PROC_OFT_LEN;
+      oft->pid = pid;
+      ++proc_ofts.len;
+      return oft;
+    }
   }
-  oft->entries = entries;
-  oft->len = 0;
-  oft->cap = PROC_OFT_LEN;
-  oft->pid = pid;
-
-  ++proc_ofts.len;
-  return oft;
+  return NULL;
 }
 
 /* Add an entry to a processes's open file table.
@@ -209,10 +259,17 @@ proc_oft_entry_add(struct proc_oft *oft, struct sys_oft_entry *sys_entry) {
   if (oft->len == oft->cap) {
     return NULL;
   }
-  struct proc_oft_entry *entry = &oft->entries[oft->len++];
-  entry->sys_entry = sys_entry;
-  entry->file_pos = sizeof(struct fcb);
-  return entry;
+  // Find first empty slot
+  for (size_t i = 0; i < oft->cap; ++i) {
+    if (oft->entries[i].sys_entry == NULL) {
+      struct proc_oft_entry *entry = &oft->entries[i];
+      entry->sys_entry = sys_entry;
+      entry->file_pos = sizeof(struct fcb);
+      ++oft->len;
+      return entry;
+    }
+  }
+  return NULL;
 }
 
 static struct proc_oft_entry * proc_oft_entry_get(struct proc_oft *oft, int fd) {

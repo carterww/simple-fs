@@ -97,6 +97,14 @@ size_t vcb_free_block_count(struct vcb *vcb) {
   return cnt;
 }
 
+/* Grabs a word (8 bytes) from the free block bitmap. This function is used
+ * for efficient finding when finding a set of free blocks for allocation.
+ * @param vcb: The VCB struct to get the word from.
+ * @param idx: The byte index to start from. 0 grabs first 8 bytes, 1 grabs
+ * the next 8 bytes, and so on.
+ * @param word: The word to set. The function sets this value.
+ * @return: The number of bytes set in the word.
+ */
 size_t vcb_get_bm_word(struct vcb *vcb, size_t idx, unsigned long *word) {
   if (!(VCB_INIT_FLAG & vcb_flags))
     return -1;

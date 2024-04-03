@@ -1,2 +1,3 @@
-# simple-fs
-Implementation of an in-memory file system for CS 445.
+# CS 445 In-Memory File System
+## Michael Wittkopf and Carter Williams
+This project is a simple in-memory file system that mimics the POSIX file system calls creat(), open(), close(), read(), write(), and lseek(). The file system, however, is much simpler than a typical file system, so the POSIX calls are not completely implemented and altered slightly. These calls are declared in "simple-fs.h" and defined in "simple-fs.c." Comments regarding each function's purpose and implementation (for all functions) are included above their respective definitions. There is also a webpage for this project that comments on the POSIX calls and what their parameters, return values, and purposes are. This webpage can be found [here](https://carterww.github.io/simple-fs/).
