@@ -1,8 +1,8 @@
 #ifndef SIMPLE_FS_H
 #define SIMPLE_FS_H
 
-#include "stddef.h"
-#include "stdio.h"
+#include <unistd.h>
+#include <sys/types.h>
 
 // Including null terminator
 #define MAX_FILE_NAME_LEN 16

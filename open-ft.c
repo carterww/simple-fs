@@ -1,9 +1,14 @@
+// For syscall
+#define _GNU_SOURCE
+
 #include "open-ft.h"
 
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/syscall.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 // System Open File Table
 static struct sys_oft sys_oft;

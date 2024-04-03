@@ -1,6 +1,7 @@
 #include "simple-fs.h"
 
-#include "pthread.h"
+#include <pthread.h>
+#include <stdio.h>
 
 void *p1_thread(void *arg) {
   // Create file 1 and write to it
