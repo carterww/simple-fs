@@ -111,7 +111,9 @@ void create(const char *name, size_t blocks) {
  * opened.
  */
 int open(const char *name, int oflag) {
+  lock_all();
   struct dentry *entry = dentry_get(dentry_table, name);
+  unlock_all();
   if (entry == NULL) {
     return -1;
   }
@@ -124,7 +126,10 @@ int open(const char *name, int oflag) {
  * @return: 0 on success, or -1 if the file could not be closed.
  */
 int close(int fd) { 
-  return oft_close(fd);
+  lock_all();
+  int res = oft_close(fd);
+  unlock_all();
+  return res;
 }
 
 /* Read from a file at the current file offset. If the file offset is at the end
@@ -138,6 +143,8 @@ int close(int fd) {
  * if the file offset is at the end of the file after the read.
  */
 ssize_t read(int fd, void *buf, size_t nbytes) { 
+  lock_all();
+
 	struct proc_oft_entry *entry = oft_get(fd);
 	if (entry == NULL || buf == NULL) {
 		return -1;
@@ -175,7 +182,8 @@ ssize_t read(int fd, void *buf, size_t nbytes) {
 
   // Update file position
   entry->file_pos = current_pos;
-			
+
+  unlock_all();
 	return bytes_read;
 }
 
@@ -189,6 +197,8 @@ ssize_t read(int fd, void *buf, size_t nbytes) {
  * to.
  */
 ssize_t write(int fd, const void *buf, size_t nbytes) {
+  lock_all();
+
 	struct proc_oft_entry *entry = oft_get(fd);
 	if(entry == NULL || buf == NULL) {
 		return -1;
@@ -225,6 +235,7 @@ ssize_t write(int fd, const void *buf, size_t nbytes) {
   // Update file position
   entry->file_pos = current_pos;
 
+  unlock_all();
 	return bytes_written;
 }
 
@@ -239,6 +250,8 @@ ssize_t write(int fd, const void *buf, size_t nbytes) {
  * file offset could not be set.
  */
 off_t lseek(int fd, off_t offset, int whence) {
+  lock_all();
+
   struct proc_oft_entry *entry = oft_get(fd);
   if (entry == NULL)
     return -1;
@@ -261,6 +274,8 @@ off_t lseek(int fd, off_t offset, int whence) {
   } else if (entry->file_pos > entry->sys_entry->fcb->file_size * BLOCK_SIZE) {
     entry->file_pos = entry->sys_entry->fcb->file_size * BLOCK_SIZE;
   }
+
+  unlock_all();
   return entry->file_pos;
 }
 
@@ -288,10 +303,12 @@ void init_fs() {
   oft_init();
 }
 
-void close_fs() {
-
-}
-
+/* Finds a free set of contiguous blocks for a file.
+ * @param start: The starting block number of the free blocks.
+ * This value will be set by the function to the file's starting block.
+ * @param blocks: The number of blocks to allocate.
+ * @return: 0 if a free set of blocks was found, -1 if no free blocks were found.
+ */
 static int find_free_blocks(size_t *start, size_t blocks) {
   *start = FIRST_DATA_BLOCK_IDX;
   unsigned long word;

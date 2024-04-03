@@ -1,3 +1,7 @@
+# Ignore disassembly output
+*.s
+
+*.dump
 test
 simulation
 

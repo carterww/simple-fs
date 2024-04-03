@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -g
+CFLAGS=-Wall -g -std=c11 -O2
 
 simulation: dir.o simple-fs.o open-ft.o vcb.o main.c
 	$(CC) $(CFLAGS) -o simulation dir.o simple-fs.o open-ft.o vcb.o main.c
@@ -11,4 +11,4 @@ test: dir.o simple-fs.o open-ft.o vcb.o test-primitives.c
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 clean:
-	rm -f *.o simulation
+	rm -f *.o simulation test

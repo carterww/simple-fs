@@ -1,6 +1,7 @@
 #include "simple-fs.h"
 
-#include "pthread.h"
+#include <pthread.h>
+#include <stdio.h>
 
 void *p1_thread(void *arg) {
   // Create file 1 and write to it
@@ -57,6 +58,4 @@ int main(void) {
   pthread_create(&p3, NULL, p2_and_p3_thread, p3_file);
   pthread_join(p2, NULL);
   pthread_join(p3, NULL);
-
-  close_fs();
 }
