@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-
 // Volume control block. Details the state of the file system.
 // Should be on block 0 of the file system.
 struct vcb {

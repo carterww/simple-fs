@@ -11,7 +11,7 @@
 // Max 32 files open system-wide
 #define SYS_OFT_LEN 32
 // Max 8 processes
-#define PROC_OFTS_LEN 8
+#define PROC_OFT_LIST_LEN 8
 // Max 32 files open per process
 #define PROC_OFT_LEN 32
 
@@ -32,7 +32,7 @@ struct sys_oft_entry {
 };
 
 // Process open file tables. Holds all the open file talbes for all processes.
-struct proc_ofts {
+struct proc_oft_list {
   struct proc_oft *ofts;
   size_t len;
   size_t cap;
